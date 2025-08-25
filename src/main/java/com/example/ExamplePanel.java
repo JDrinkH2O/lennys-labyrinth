@@ -34,8 +34,12 @@ public class ExamplePanel extends PluginPanel
 	@Inject
 	private ClientThread clientThread;
 
+	@Inject
+	private ExampleConfig config;
+
 	private final JButton locationButton;
 	private final JLabel statusLabel;
+	private final JTextField eventKeyField;
 
 	public ExamplePanel()
 	{
@@ -47,6 +51,11 @@ public class ExamplePanel extends PluginPanel
 		titleLabel.setFont(FontManager.getRunescapeFont());
 		titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
+		JLabel eventKeyLabel = new JLabel("Event Key:");
+		eventKeyLabel.setForeground(Color.WHITE);
+		eventKeyField = new JTextField(20);
+		eventKeyField.setToolTipText("Enter the event key for this submission");
+
 		locationButton = new JButton("Submit Answer");
 		locationButton.addActionListener(this::onLocationButtonClick);
 
@@ -54,15 +63,45 @@ public class ExamplePanel extends PluginPanel
 		statusLabel.setForeground(Color.WHITE);
 		statusLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
+		JPanel eventKeyPanel = new JPanel(new FlowLayout());
+		eventKeyPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		eventKeyPanel.add(eventKeyLabel);
+		eventKeyPanel.add(eventKeyField);
+
+		JPanel centerPanel = new JPanel(new BorderLayout());
+		centerPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		centerPanel.add(eventKeyPanel, BorderLayout.NORTH);
+		centerPanel.add(locationButton, BorderLayout.CENTER);
+
 		add(titleLabel, BorderLayout.NORTH);
-		add(locationButton, BorderLayout.CENTER);
+		add(centerPanel, BorderLayout.CENTER);
 		add(statusLabel, BorderLayout.SOUTH);
+	}
+
+	private boolean isEventKeyValid()
+	{
+		return !eventKeyField.getText().trim().isEmpty();
 	}
 
 	private void onLocationButtonClick(ActionEvent e)
 	{
 		clientThread.invokeLater(() -> {
-			captureGameState("button", "Manual submission via Submit Answer button", null, null, null);
+			if (!isEventKeyValid())
+			{
+				if (config.debug())
+				{
+					client.addChatMessage(
+						ChatMessageType.GAMEMESSAGE,
+						"",
+						"[DEBUG] Game state capture skipped - Event Key is empty",
+						null
+					);
+				}
+				return;
+			}
+			
+			String eventKey = eventKeyField.getText().trim();
+			captureGameState("button", "Manual submission via Submit Answer button", null, null, null, eventKey);
 		});
 	}
 
@@ -141,7 +180,7 @@ public class ExamplePanel extends PluginPanel
 
 	private Map<String, Object> createGameStateJson(Map<String, Object> locationData, 
 		List<Map<String, Object>> inventoryData, List<Map<String, Object>> wornItemsData, 
-		Integer emoteId, Integer npcId, String interactionType)
+		Integer emoteId, Integer npcId, String interactionType, String eventKey)
 	{
 		Map<String, Object> gameState = new HashMap<>();
 		gameState.put("location", locationData);
@@ -150,25 +189,62 @@ public class ExamplePanel extends PluginPanel
 		gameState.put("emote_id", emoteId);
 		gameState.put("npc_id", npcId);
 		gameState.put("interaction_type", interactionType);
+		gameState.put("event_key", eventKey);
+		
+		// Get player's RSN (RuneScape Name)
+		Player localPlayer = client.getLocalPlayer();
+		String rsn = (localPlayer != null) ? localPlayer.getName() : null;
+		gameState.put("rsn", rsn);
+		
 		return gameState;
 	}
 
 	public void captureGameStateFromAnimation(int animationId)
 	{
 		clientThread.invokeLater(() -> {
+			if (!isEventKeyValid())
+			{
+				if (config.debug())
+				{
+					client.addChatMessage(
+						ChatMessageType.GAMEMESSAGE,
+						"",
+						"[DEBUG] Game state capture skipped - Event Key is empty (Animation ID: " + animationId + ")",
+						null
+					);
+				}
+				return;
+			}
+			
 			String triggerType = (animationId == 830) ? "dig" : "emote"; // 830 is AnimationID.DIG
-			captureGameState(triggerType, "Animation ID: " + animationId, animationId, null, null);
+			String eventKey = eventKeyField.getText().trim();
+			captureGameState(triggerType, "Animation ID: " + animationId, animationId, null, null, eventKey);
 		});
 	}
 
 	public void captureGameStateFromNpcInteraction(int npcId, String interactionType)
 	{
 		clientThread.invokeLater(() -> {
-			captureGameState("npc_interaction", "NPC ID: " + npcId + ", Action: " + interactionType, null, npcId, interactionType);
+			if (!isEventKeyValid())
+			{
+				if (config.debug())
+				{
+					client.addChatMessage(
+						ChatMessageType.GAMEMESSAGE,
+						"",
+						"[DEBUG] Game state capture skipped - Event Key is empty (NPC ID: " + npcId + ", Action: " + interactionType + ")",
+						null
+					);
+				}
+				return;
+			}
+			
+			String eventKey = eventKeyField.getText().trim();
+			captureGameState("npc_interaction", "NPC ID: " + npcId + ", Action: " + interactionType, null, npcId, interactionType, eventKey);
 		});
 	}
 
-	private void captureGameState(String trigger, String additionalInfo, Integer emoteId, Integer npcId, String interactionType)
+	private void captureGameState(String trigger, String additionalInfo, Integer emoteId, Integer npcId, String interactionType, String eventKey)
 	{
 		Player player = client.getLocalPlayer();
 		if (player != null)
@@ -180,7 +256,7 @@ public class ExamplePanel extends PluginPanel
 			List<Map<String, Object>> inventoryData = getInventoryData();
 			List<Map<String, Object>> wornItemsData = getWornItemsData();
 			
-			Map<String, Object> gameStateJson = createGameStateJson(locationData, inventoryData, wornItemsData, emoteId, npcId, interactionType);
+			Map<String, Object> gameStateJson = createGameStateJson(locationData, inventoryData, wornItemsData, emoteId, npcId, interactionType, eventKey);
 
 			// Log JSON data to console with trigger information
 			log.info("=== Lenny's Labyrinth Game State JSON ({}) ===", trigger);

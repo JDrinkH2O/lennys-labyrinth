@@ -16,4 +16,14 @@ public interface ExampleConfig extends Config
 	{
 		return "Hello";
 	}
+
+	@ConfigItem(
+		keyName = "debug",
+		name = "Debug Mode",
+		description = "Show all animation IDs in chat when player performs animations"
+	)
+	default boolean debug()
+	{
+		return false;
+	}
 }
