@@ -62,47 +62,7 @@ public class ExamplePanel extends PluginPanel
 	private void onLocationButtonClick(ActionEvent e)
 	{
 		clientThread.invokeLater(() -> {
-			Player player = client.getLocalPlayer();
-			if (player != null)
-			{
-				WorldPoint worldLocation = player.getWorldLocation();
-				LocalPoint localLocation = player.getLocalLocation();
-
-				Map<String, Object> locationData = getLocationData(worldLocation, localLocation);
-				List<Map<String, Object>> inventoryData = getInventoryData();
-				List<Map<String, Object>> wornItemsData = getWornItemsData();
-				
-				Map<String, Object> gameStateJson = createGameStateJson(locationData, inventoryData, wornItemsData);
-
-				// Log JSON data to console
-				log.info("=== Lenny's Labyrinth Game State JSON ===");
-				log.info("{}", gameStateJson);
-
-				// Update side panel with JSON information
-				SwingUtilities.invokeLater(() -> {
-					String detailedText = String.format(
-						"<html><center>Inventory: %d items<br/>Worn: %d items<br/>JSON: %s</center></html>",
-						inventoryData.size(),
-						wornItemsData.size(),
-						gameStateJson.toString()
-					);
-					statusLabel.setText(detailedText);
-				});
-
-				// Only show simple message in chat
-				client.addChatMessage(
-					ChatMessageType.GAMEMESSAGE,
-					"",
-					"Submitting a guess...",
-					null
-				);
-			}
-			else
-			{
-				SwingUtilities.invokeLater(() -> {
-					statusLabel.setText("Player not found");
-				});
-			}
+			captureGameState("button", "Manual submission via Submit Answer button", null, null, null);
 		});
 	}
 
@@ -180,12 +140,79 @@ public class ExamplePanel extends PluginPanel
 	}
 
 	private Map<String, Object> createGameStateJson(Map<String, Object> locationData, 
-		List<Map<String, Object>> inventoryData, List<Map<String, Object>> wornItemsData)
+		List<Map<String, Object>> inventoryData, List<Map<String, Object>> wornItemsData, 
+		Integer emoteId, Integer npcId, String interactionType)
 	{
 		Map<String, Object> gameState = new HashMap<>();
 		gameState.put("location", locationData);
 		gameState.put("inventory", inventoryData);
 		gameState.put("worn_items", wornItemsData);
+		gameState.put("emote_id", emoteId);
+		gameState.put("npc_id", npcId);
+		gameState.put("interaction_type", interactionType);
 		return gameState;
+	}
+
+	public void captureGameStateFromAnimation(int animationId)
+	{
+		clientThread.invokeLater(() -> {
+			String triggerType = (animationId == 830) ? "dig" : "emote"; // 830 is AnimationID.DIG
+			captureGameState(triggerType, "Animation ID: " + animationId, animationId, null, null);
+		});
+	}
+
+	public void captureGameStateFromNpcInteraction(int npcId, String interactionType)
+	{
+		clientThread.invokeLater(() -> {
+			captureGameState("npc_interaction", "NPC ID: " + npcId + ", Action: " + interactionType, null, npcId, interactionType);
+		});
+	}
+
+	private void captureGameState(String trigger, String additionalInfo, Integer emoteId, Integer npcId, String interactionType)
+	{
+		Player player = client.getLocalPlayer();
+		if (player != null)
+		{
+			WorldPoint worldLocation = player.getWorldLocation();
+			LocalPoint localLocation = player.getLocalLocation();
+
+			Map<String, Object> locationData = getLocationData(worldLocation, localLocation);
+			List<Map<String, Object>> inventoryData = getInventoryData();
+			List<Map<String, Object>> wornItemsData = getWornItemsData();
+			
+			Map<String, Object> gameStateJson = createGameStateJson(locationData, inventoryData, wornItemsData, emoteId, npcId, interactionType);
+
+			// Log JSON data to console with trigger information
+			log.info("=== Lenny's Labyrinth Game State JSON ({}) ===", trigger);
+			log.info("Trigger info: {}", additionalInfo);
+			log.info("{}", gameStateJson);
+
+			// Update side panel with trigger information
+			SwingUtilities.invokeLater(() -> {
+				String detailedText = String.format(
+					"<html><center>Trigger: %s<br/>%s<br/>Inventory: %d items<br/>Worn: %d items<br/>JSON: %s</center></html>",
+					trigger,
+					additionalInfo,
+					inventoryData.size(),
+					wornItemsData.size(),
+					gameStateJson.toString()
+				);
+				statusLabel.setText(detailedText);
+			});
+
+			// Show trigger-specific message in chat
+			client.addChatMessage(
+				ChatMessageType.GAMEMESSAGE,
+				"",
+				"Game state captured (" + trigger + ")",
+				null
+			);
+		}
+		else
+		{
+			SwingUtilities.invokeLater(() -> {
+				statusLabel.setText("Player not found");
+			});
+		}
 	}
 }
