@@ -19,7 +19,7 @@ import java.awt.image.BufferedImage;
 
 @Slf4j
 @PluginDescriptor(
-	name = "Example"
+	name = "Lenny's Labyrinth"
 )
 public class ExamplePlugin extends Plugin
 {
@@ -40,12 +40,12 @@ public class ExamplePlugin extends Plugin
 	@Override
 	protected void startUp() throws Exception
 	{
-		log.info("Example started!");
+		log.info("Lenny's Labyrinth started!");
 
 		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/util/clue_arrow.png");
 
 		navButton = NavigationButton.builder()
-			.tooltip("Location Tracker")
+			.tooltip("Lenny's Labyrinth")
 			.icon(icon)
 			.priority(5)
 			.panel(panel)
@@ -57,17 +57,14 @@ public class ExamplePlugin extends Plugin
 	@Override
 	protected void shutDown() throws Exception
 	{
-		log.info("Example stopped!");
+		log.info("Lenny's Labyrinth stopped!");
 		clientToolbar.removeNavigation(navButton);
 	}
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged gameStateChanged)
 	{
-		if (gameStateChanged.getGameState() == GameState.LOGGED_IN)
-		{
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Example says " + config.greeting(), null);
-		}
+		// No chat message on login
 	}
 
 	@Provides

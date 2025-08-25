@@ -2,24 +2,37 @@ package com.example;
 
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
+import net.runelite.api.InventoryID;
+import net.runelite.api.Item;
+import net.runelite.api.ItemContainer;
 import net.runelite.api.Player;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
+@Slf4j
 @Singleton
 public class ExamplePanel extends PluginPanel
 {
 	@Inject
 	private Client client;
+
+	@Inject
+	private ClientThread clientThread;
 
 	private final JButton locationButton;
 	private final JLabel statusLabel;
@@ -29,15 +42,15 @@ public class ExamplePanel extends PluginPanel
 		setLayout(new BorderLayout());
 		setBackground(ColorScheme.DARK_GRAY_COLOR);
 
-		JLabel titleLabel = new JLabel("Location Tracker");
+		JLabel titleLabel = new JLabel("Lenny's Labyrinth");
 		titleLabel.setForeground(Color.WHITE);
 		titleLabel.setFont(FontManager.getRunescapeFont());
 		titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
-		locationButton = new JButton("Get My Location");
+		locationButton = new JButton("Submit Answer");
 		locationButton.addActionListener(this::onLocationButtonClick);
 
-		statusLabel = new JLabel("Click button to get location");
+		statusLabel = new JLabel("Click the button to submit a guess based on current gamestate.");
 		statusLabel.setForeground(Color.WHITE);
 		statusLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
@@ -48,33 +61,131 @@ public class ExamplePanel extends PluginPanel
 
 	private void onLocationButtonClick(ActionEvent e)
 	{
-		Player player = client.getLocalPlayer();
-		if (player != null)
+		clientThread.invokeLater(() -> {
+			Player player = client.getLocalPlayer();
+			if (player != null)
+			{
+				WorldPoint worldLocation = player.getWorldLocation();
+				LocalPoint localLocation = player.getLocalLocation();
+
+				Map<String, Object> locationData = getLocationData(worldLocation, localLocation);
+				List<Map<String, Object>> inventoryData = getInventoryData();
+				List<Map<String, Object>> wornItemsData = getWornItemsData();
+				
+				Map<String, Object> gameStateJson = createGameStateJson(locationData, inventoryData, wornItemsData);
+
+				// Log JSON data to console
+				log.info("=== Lenny's Labyrinth Game State JSON ===");
+				log.info("{}", gameStateJson);
+
+				// Update side panel with JSON information
+				SwingUtilities.invokeLater(() -> {
+					String detailedText = String.format(
+						"<html><center>Inventory: %d items<br/>Worn: %d items<br/>JSON: %s</center></html>",
+						inventoryData.size(),
+						wornItemsData.size(),
+						gameStateJson.toString()
+					);
+					statusLabel.setText(detailedText);
+				});
+
+				// Only show simple message in chat
+				client.addChatMessage(
+					ChatMessageType.GAMEMESSAGE,
+					"",
+					"Submitting a guess...",
+					null
+				);
+			}
+			else
+			{
+				SwingUtilities.invokeLater(() -> {
+					statusLabel.setText("Player not found");
+				});
+			}
+		});
+	}
+
+	private List<Map<String, Object>> getInventoryData()
+	{
+		List<Map<String, Object>> inventoryItems = new ArrayList<>();
+		ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
+
+		if (inventory == null)
 		{
-			WorldPoint worldLocation = player.getWorldLocation();
-			LocalPoint localLocation = player.getLocalLocation();
-
-			String locationText = String.format(
-				"World: (%d, %d, %d) | Local: (%d, %d)",
-				worldLocation.getX(),
-				worldLocation.getY(),
-				worldLocation.getPlane(),
-				localLocation.getSceneX(),
-				localLocation.getSceneY()
-			);
-
-			statusLabel.setText("<html><center>" + locationText + "</center></html>");
-
-			client.addChatMessage(
-				ChatMessageType.GAMEMESSAGE,
-				"",
-				"Your location: " + locationText,
-				null
-			);
+			return inventoryItems;
 		}
-		else
+
+		Item[] items = inventory.getItems();
+		for (int i = 0; i < items.length; i++)
 		{
-			statusLabel.setText("Player not found");
+			Item item = items[i];
+			if (item != null && item.getId() != -1)
+			{
+				Map<String, Object> itemData = new HashMap<>();
+				itemData.put("slot", i);
+				itemData.put("id", item.getId());
+				itemData.put("quantity", item.getQuantity());
+				inventoryItems.add(itemData);
+			}
 		}
+
+		return inventoryItems;
+	}
+
+	private List<Map<String, Object>> getWornItemsData()
+	{
+		List<Map<String, Object>> wornItems = new ArrayList<>();
+		ItemContainer equipment = client.getItemContainer(InventoryID.EQUIPMENT);
+
+		if (equipment == null)
+		{
+			return wornItems;
+		}
+
+		Item[] items = equipment.getItems();
+		for (int i = 0; i < items.length; i++)
+		{
+			Item item = items[i];
+			if (item != null && item.getId() != -1)
+			{
+				Map<String, Object> itemData = new HashMap<>();
+				itemData.put("slot", i);
+				itemData.put("id", item.getId());
+				itemData.put("quantity", item.getQuantity());
+				wornItems.add(itemData);
+			}
+		}
+
+		return wornItems;
+	}
+
+	private Map<String, Object> getLocationData(WorldPoint worldLocation, LocalPoint localLocation)
+	{
+		Map<String, Object> locationData = new HashMap<>();
+		
+		Map<String, Object> worldCoords = new HashMap<>();
+		worldCoords.put("x", worldLocation.getX());
+		worldCoords.put("y", worldLocation.getY());
+		worldCoords.put("plane", worldLocation.getPlane());
+		
+		Map<String, Object> localCoords = new HashMap<>();
+		localCoords.put("sceneX", localLocation.getSceneX());
+		localCoords.put("sceneY", localLocation.getSceneY());
+		
+		locationData.put("world", worldCoords);
+		locationData.put("local", localCoords);
+		
+		return locationData;
+	}
+
+	private Map<String, Object> createGameStateJson(Map<String, Object> locationData, 
+		List<Map<String, Object>> inventoryData, List<Map<String, Object>> wornItemsData)
+	{
+		Map<String, Object> gameState = new HashMap<>();
+		gameState.put("location", locationData);
+		gameState.put("inventory", inventoryData);
+		gameState.put("worn_items", wornItemsData);
+		return gameState;
 	}
 }
