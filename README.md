@@ -54,6 +54,39 @@ The plugin captures game state data when any of the following events occur:
 - **Scope**: All NPC menu options (first through fifth options)
 - **Use case**: Quest and dialogue-based puzzles
 
+## File Architecture
+
+The plugin follows a clean separation of concerns across multiple files:
+
+### Core Files
+
+| File | Responsibility |
+|------|---------------|
+| **LennysLabyrinthPlugin.java** | Event detection and plugin lifecycle management. Handles RuneLite event subscriptions and delegates processing to services. |
+| **LennysLabyrinthPanel.java** | UI components and user interface interactions. Contains only Swing UI code and delegates business logic to services. |
+| **GameStateService.java** | Business logic coordination, API integration, and workflow management. Orchestrates the entire capture and submission process. |
+| **GameStateCapture.java** | Raw data extraction and formatting from the game client. Pure data collection without side effects. |
+| **AnimationTriggers.java** | Animation ID constants and trigger detection logic. Determines which animations should trigger game state capture. |
+| **LennysLabyrinthConfig.java** | Configuration interface defining plugin settings (debug mode, event key). |
+| **ApiClient.java** | HTTP communication with external API. Handles JSON serialization and network requests. |
+
+### Architecture Benefits
+
+- **Single Responsibility**: Each file has one clear, focused purpose
+- **Improved Testability**: Business logic can be tested independently of UI components
+- **Better Maintainability**: Changes to game state logic don't require modifying UI code
+- **Enhanced Readability**: Smaller, focused files are easier to understand and navigate
+- **Reduced Coupling**: Components depend on clear interfaces rather than mixed concerns
+
+### Data Flow
+
+1. **Event Detection**: `LennysLabyrinthPlugin` receives RuneLite events
+2. **Trigger Validation**: `AnimationTriggers` determines if the event should trigger capture
+3. **Service Coordination**: `GameStateService` orchestrates the capture workflow
+4. **Data Extraction**: `GameStateCapture` extracts raw data from the game client
+5. **API Communication**: `ApiClient` submits the formatted data to the external service
+6. **UI Updates**: `LennysLabyrinthPanel` displays the results to the user
+
 ## JSON Schema
 
 The plugin generates JSON objects with the following structure:

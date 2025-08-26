@@ -1,22 +1,12 @@
-package com.example;
+package com.lennyslabyrinth;
 
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 
-@ConfigGroup("example")
-public interface ExampleConfig extends Config
+@ConfigGroup("lennyslabyrinth")
+public interface LennysLabyrinthConfig extends Config
 {
-	@ConfigItem(
-		keyName = "greeting",
-		name = "Welcome Greeting",
-		description = "The message to show to the user when they login"
-	)
-	default String greeting()
-	{
-		return "Hello";
-	}
-
 	@ConfigItem(
 		keyName = "debug",
 		name = "Debug Mode",
@@ -25,5 +15,15 @@ public interface ExampleConfig extends Config
 	default boolean debug()
 	{
 		return false;
+	}
+
+	@ConfigItem(
+		keyName = "eventKey",
+		name = "Event Key",
+		description = "The event key for Lenny's Labyrinth submissions"
+	)
+	default String eventKey()
+	{
+		return "";
 	}
 }
