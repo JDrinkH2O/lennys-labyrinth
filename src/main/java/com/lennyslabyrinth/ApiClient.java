@@ -14,6 +14,8 @@ import okhttp3.Response;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -24,6 +26,7 @@ public class ApiClient
 {
 	private static final String API_BASE_URL = "http://localhost:8080";
 	private static final String SUBMIT_GUESS_ENDPOINT = "/submit-guess";
+	private static final String VALIDATE_KEY_ENDPOINT = "/validate-key";
 	private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
 	private final OkHttpClient httpClient;
@@ -99,6 +102,79 @@ public class ApiClient
 		{
 			log.error("Failed to create API request", e);
 			future.complete(ApiResponse.error("Request creation failed: " + e.getMessage()));
+		}
+
+		return future;
+	}
+
+	public CompletableFuture<ApiResponse> validateEventKey(String eventKey)
+	{
+		CompletableFuture<ApiResponse> future = new CompletableFuture<>();
+
+		try
+		{
+			log.debug("Validating event key: {}", eventKey);
+
+			String encodedEventKey = URLEncoder.encode(eventKey, StandardCharsets.UTF_8);
+			Request request = new Request.Builder()
+				.url(API_BASE_URL + VALIDATE_KEY_ENDPOINT + "/" + encodedEventKey)
+				.get()
+				.build();
+
+			httpClient.newCall(request).enqueue(new Callback()
+			{
+				@Override
+				public void onFailure(Call call, IOException e)
+				{
+					log.error("Event key validation request failed", e);
+					future.complete(ApiResponse.errorWithType("NETWORK_ERROR", "Network error: " + e.getMessage()));
+				}
+
+				@Override
+				public void onResponse(Call call, Response response)
+				{
+					try (response)
+					{
+						String responseBody = response.body() != null ? response.body().string() : "";
+						log.debug("Event key validation response code: {}, body: {}", response.code(), responseBody);
+
+						if (response.isSuccessful())
+						{
+							try
+							{
+								ApiResponse apiResponse = gson.fromJson(responseBody, ApiResponse.class);
+								future.complete(apiResponse);
+							}
+							catch (JsonSyntaxException e)
+							{
+								log.error("Failed to parse event key validation response JSON", e);
+								future.complete(ApiResponse.errorWithType("PARSE_ERROR", "Invalid response format"));
+							}
+						}
+						else if (response.code() == 404)
+						{
+							// 404 means event key not found - this is expected for invalid keys
+							future.complete(ApiResponse.errorWithType("KEY_NOT_FOUND", "Event key not found"));
+						}
+						else
+						{
+							// Any other HTTP error (500, 503, etc.)
+							log.error("Server error response: {} - {}", response.code(), responseBody);
+							future.complete(ApiResponse.errorWithType("SERVER_ERROR", "Server error: " + response.code()));
+						}
+					}
+					catch (IOException e)
+					{
+						log.error("Failed to read event key validation response body", e);
+						future.complete(ApiResponse.errorWithType("IO_ERROR", "Failed to read server response"));
+					}
+				}
+			});
+		}
+		catch (Exception e)
+		{
+			log.error("Failed to create event key validation request", e);
+			future.complete(ApiResponse.errorWithType("REQUEST_ERROR", "Request creation failed: " + e.getMessage()));
 		}
 
 		return future;
@@ -187,16 +263,30 @@ public class ApiClient
 	{
 		public boolean success;
 		public String message;
+		public String errorType; // For client-side error handling
 
 		public ApiResponse(boolean success, String message)
 		{
 			this.success = success;
 			this.message = message;
+			this.errorType = null;
+		}
+
+		private ApiResponse(boolean success, String message, String errorType)
+		{
+			this.success = success;
+			this.message = message;
+			this.errorType = errorType;
 		}
 
 		public static ApiResponse error(String message)
 		{
 			return new ApiResponse(false, message);
+		}
+
+		public static ApiResponse errorWithType(String errorType, String message)
+		{
+			return new ApiResponse(false, message, errorType);
 		}
 	}
 }

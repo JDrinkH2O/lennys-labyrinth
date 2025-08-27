@@ -18,12 +18,24 @@ public interface LennysLabyrinthConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "eventKey",
-		name = "Event Key",
-		description = "The event key for Lenny's Labyrinth submissions"
+		keyName = "showCelebrationSound",
+		name = "Victory sound effects",
+		description = "Play a celebratory sound when you solve a puzzle correctly"
 	)
-	default String eventKey()
+	default boolean showCelebrationSound()
 	{
-		return "";
+		return true;
 	}
+
+	@ConfigItem(
+		keyName = "showCelebrationFireworks",
+		name = "Victory fireworks",
+		description = "Show fireworks when you solve a puzzle correctly"
+	)
+	default boolean showCelebrationFireworks()
+	{
+		return true;
+	}
+
+
 }

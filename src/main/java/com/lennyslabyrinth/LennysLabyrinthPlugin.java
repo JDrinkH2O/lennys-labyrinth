@@ -43,6 +43,9 @@ public class LennysLabyrinthPlugin extends Plugin
 	@Inject
 	private GameStateService gameStateService;
 
+	@Inject
+	private CelebrationManager celebrationManager;
+
 	private NavigationButton navButton;
 
 	@Override

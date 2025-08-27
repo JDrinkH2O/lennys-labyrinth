@@ -32,16 +32,50 @@ public class GameStateService
 	@Inject
 	private GameStateCapture gameStateCapture;
 
+	@Inject
+	private CelebrationManager celebrationManager;
+
 	private LennysLabyrinthPanel panel;
+	
+	// Event key management
+	private String currentEventKey = "";
 
 	public void setPanel(LennysLabyrinthPanel panel)
 	{
 		this.panel = panel;
 	}
 
+	public String getEventKey()
+	{
+		return currentEventKey;
+	}
+
+	public void setEventKey(String eventKey)
+	{
+		this.currentEventKey = (eventKey != null) ? eventKey.trim() : "";
+		if (panel != null)
+		{
+			panel.onEventKeyChanged();
+		}
+	}
+
+	public void clearEventKey()
+	{
+		this.currentEventKey = "";
+		if (panel != null)
+		{
+			panel.onEventKeyChanged();
+		}
+	}
+
+	public boolean hasEventKey()
+	{
+		return !currentEventKey.isEmpty();
+	}
+
 	private boolean isEventKeyValid()
 	{
-		return !config.eventKey().trim().isEmpty();
+		return hasEventKey();
 	}
 
 	public void captureFromButton()
@@ -61,7 +95,7 @@ public class GameStateService
 				return;
 			}
 			
-			String eventKey = config.eventKey().trim();
+			String eventKey = getEventKey();
 			captureGameState("button", "Manual submission via Submit Answer button", null, null, null, eventKey);
 		});
 	}
@@ -84,7 +118,7 @@ public class GameStateService
 			}
 			
 			String triggerType = (animationId == 830) ? "dig" : "emote"; // 830 is AnimationID.DIG
-			String eventKey = config.eventKey().trim();
+			String eventKey = getEventKey();
 			captureGameState(triggerType, "Animation ID: " + animationId, animationId, null, null, eventKey);
 		});
 	}
@@ -106,7 +140,7 @@ public class GameStateService
 				return;
 			}
 			
-			String eventKey = config.eventKey().trim();
+			String eventKey = getEventKey();
 			captureGameState("npc_interaction", "NPC ID: " + npcId + ", Action: " + interactionType, null, npcId, interactionType, eventKey);
 		});
 	}
@@ -189,6 +223,12 @@ public class GameStateService
 				);
 			}
 			panel.updateStatusLabel(statusText);
+		}
+
+		// Trigger victory celebration if successful
+		if (response.success && celebrationManager != null)
+		{
+			celebrationManager.triggerVictoryCelebration(currentEventKey);
 		}
 
 		// Add message to in-game chat on client thread
