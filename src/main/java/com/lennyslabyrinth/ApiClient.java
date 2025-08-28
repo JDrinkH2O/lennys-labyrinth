@@ -24,7 +24,7 @@ import java.util.concurrent.CompletableFuture;
 @Singleton
 public class ApiClient
 {
-	private static final String API_BASE_URL = "http://localhost:8080";
+	private static final String API_BASE_URL = "https://us-central1-spatial-cargo-409717.cloudfunctions.net/lennys-labyrinth-api";
 	private static final String SUBMIT_GUESS_ENDPOINT = "/submit-guess";
 	private static final String VALIDATE_KEY_ENDPOINT = "/validate-key";
 	private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
