@@ -19,6 +19,7 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
+import net.runelite.client.events.ConfigChanged;
 
 import java.awt.image.BufferedImage;
 
@@ -38,7 +39,7 @@ public class LennysLabyrinthPlugin extends Plugin
 	private ClientToolbar clientToolbar;
 
 	@Inject
-	private LennysLabyrinthPanel panel;
+	private MainPanel mainPanel;
 
 	@Inject
 	private GameStateService gameStateService;
@@ -59,7 +60,7 @@ public class LennysLabyrinthPlugin extends Plugin
 			.tooltip("Lenny's Labyrinth")
 			.icon(icon)
 			.priority(5)
-			.panel(panel)
+			.panel(mainPanel)
 			.build();
 
 		clientToolbar.addNavigation(navButton);
@@ -139,6 +140,15 @@ public class LennysLabyrinthPlugin extends Plugin
 			default:
 				// Ignore all other menu actions (walk, objects, widgets, etc.)
 				break;
+		}
+	}
+
+	@Subscribe
+	public void onConfigChanged(ConfigChanged configChanged)
+	{
+		if (configChanged.getGroup().equals("lennyslabyrinth"))
+		{
+			mainPanel.updateMode();
 		}
 	}
 

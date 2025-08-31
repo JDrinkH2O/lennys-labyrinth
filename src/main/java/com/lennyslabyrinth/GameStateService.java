@@ -36,6 +36,7 @@ public class GameStateService
 	private CelebrationManager celebrationManager;
 
 	private LennysLabyrinthPanel panel;
+	private AnswerBuilderPanel answerBuilderPanel;
 	
 	// Event key management
 	private String currentEventKey = "";
