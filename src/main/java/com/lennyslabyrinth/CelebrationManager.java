@@ -59,11 +59,22 @@ public class CelebrationManager
 		{
 			if (client.getLocalPlayer() != null)
 			{
-				// For now, we'll play an additional celebratory sound instead of visual fireworks
-				// Visual effects like SpotAnim require more complex implementation with game ticks
-				// This could be enhanced later with proper SpotAnim usage
-				client.playSoundEffect(SoundEffectID.GE_INCREMENT_PLOP);
-				log.debug("Triggered fireworks sound effect");
+				// Create the vanilla OSRS level-up fireworks animation on the player
+				// SpotAnim ID 199 is the standard fireworks that appear when leveling up
+				client.getLocalPlayer().createSpotAnim(0, 199, 0, 0);
+				
+				// Also play the level-up sound effects for authenticity
+				client.playSoundEffect(2396); // Level up sound 1
+				clientThread.invokeLater(() -> {
+					try {
+						Thread.sleep(583); // 35 game ticks delay (35 * 16.67ms = ~583ms)
+						client.playSoundEffect(2384); // Level up sound 2
+					} catch (InterruptedException e) {
+						Thread.currentThread().interrupt();
+					}
+				});
+				
+				log.debug("Triggered vanilla fireworks animation (SpotAnim 199) on player");
 			}
 		}
 		catch (Exception e)
