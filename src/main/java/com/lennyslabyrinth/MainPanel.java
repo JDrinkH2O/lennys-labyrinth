@@ -42,7 +42,7 @@ public class MainPanel extends PluginPanel
 	{
 		boolean shouldBeBuilderMode = config.answerBuilderMode();
 		
-		if (shouldBeBuilderMode != isBuilderMode)
+		if (shouldBeBuilderMode != isBuilderMode || getComponentCount() == 0)
 		{
 			isBuilderMode = shouldBeBuilderMode;
 			

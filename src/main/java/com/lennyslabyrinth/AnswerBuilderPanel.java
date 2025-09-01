@@ -2,6 +2,8 @@ package com.lennyslabyrinth;
 
 import com.lennyslabyrinth.constraints.*;
 import com.lennyslabyrinth.dialogs.LocationConstraintDialog;
+import com.lennyslabyrinth.dialogs.SubmitAnswerDialog;
+import net.runelite.api.Client;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
@@ -19,6 +21,12 @@ public class AnswerBuilderPanel extends PluginPanel
 	@Inject
 	private GameStateService gameStateService;
 
+	@Inject
+	private Client client;
+
+	@Inject
+	private ApiClient apiClient;
+
 	private AnswerBuilder answerBuilder;
 	private JLabel titleLabel;
 	private JTextArea rewardTextArea;
@@ -32,9 +40,8 @@ public class AnswerBuilderPanel extends PluginPanel
 	private JButton addInventoryButton;
 	private JButton addEquipmentButton;
 	private JButton addActionButton;
-	private JButton addEventKeyButton;
-	private JButton testAnswerButton;
 	private JButton clearAnswerButton;
+	private JButton submitAnswerButton;
 
 	public AnswerBuilderPanel()
 	{
@@ -49,24 +56,33 @@ public class AnswerBuilderPanel extends PluginPanel
 		titleLabel.setFont(FontManager.getRunescapeFont());
 		titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
-		// Main content panel
-		JPanel mainPanel = new JPanel(new BorderLayout());
+		// Main content panel - single column layout
+		JPanel mainPanel = new JPanel();
+		mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
 		mainPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-		// Reward text area
+		// 1. Reward text area
 		JPanel rewardPanel = new JPanel(new BorderLayout());
 		rewardPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
-		rewardPanel.setBorder(BorderFactory.createTitledBorder("Reward Text"));
+		rewardPanel.setBorder(BorderFactory.createTitledBorder("Reward Text (Required)"));
+		rewardPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 100));
 
-		rewardTextArea = new JTextArea(2, 20);
+		rewardTextArea = new JTextArea(3, 0);
 		rewardTextArea.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		rewardTextArea.setForeground(Color.WHITE);
 		rewardTextArea.setLineWrap(true);
 		rewardTextArea.setWrapStyleWord(true);
+		rewardTextArea.setToolTipText("This reward text will be shown to players that solve your puzzle!");
+		rewardTextArea.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+			public void insertUpdate(javax.swing.event.DocumentEvent e) { updateSubmitButtonState(); }
+			public void removeUpdate(javax.swing.event.DocumentEvent e) { updateSubmitButtonState(); }
+			public void changedUpdate(javax.swing.event.DocumentEvent e) { updateSubmitButtonState(); }
+		});
 		JScrollPane rewardScrollPane = new JScrollPane(rewardTextArea);
 		rewardPanel.add(rewardScrollPane, BorderLayout.CENTER);
 
-		// Constraints panel
+		// 2. Constraints panel
 		constraintsPanel = new JPanel();
 		constraintsPanel.setLayout(new BoxLayout(constraintsPanel, BoxLayout.Y_AXIS));
 		constraintsPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -74,27 +90,55 @@ public class AnswerBuilderPanel extends PluginPanel
 		constraintsScrollPane = new JScrollPane(constraintsPanel);
 		constraintsScrollPane.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		constraintsScrollPane.setBorder(BorderFactory.createTitledBorder("Constraints"));
-		constraintsScrollPane.setPreferredSize(new Dimension(300, 200));
+		constraintsScrollPane.setPreferredSize(new Dimension(0, 200));
 
-		// Button panel
-		buttonPanel = new JPanel(new GridLayout(0, 1, 5, 5));
-		buttonPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
-		buttonPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+		// 3. Add constraint buttons panel
+		JPanel addButtonsPanel = new JPanel(new GridLayout(2, 2, 5, 5));
+		addButtonsPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		addButtonsPanel.setBorder(BorderFactory.createTitledBorder("Add Constraints"));
+		addButtonsPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
+
+		// 4. Action buttons panel
+		JPanel actionButtonsPanel = new JPanel(new GridLayout(1, 2, 5, 5));
+		actionButtonsPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		actionButtonsPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+
+		// 5. Submit button panel
+		JPanel submitPanel = new JPanel(new FlowLayout());
+		submitPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		submitPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
 
 		createButtons();
+		
+		// Add buttons to panels
+		addButtonsPanel.add(addLocationButton);
+		addButtonsPanel.add(addInventoryButton);
+		addButtonsPanel.add(addEquipmentButton);
+		addButtonsPanel.add(addActionButton);
+
+		actionButtonsPanel.add(clearAnswerButton);
+		actionButtonsPanel.add(new JLabel()); // Spacer
+
+		submitPanel.add(submitAnswerButton);
 
 		// Status label
 		statusLabel = new JLabel("Ready to build answer");
 		statusLabel.setForeground(Color.WHITE);
 		statusLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
-		// Layout
-		mainPanel.add(rewardPanel, BorderLayout.NORTH);
-		mainPanel.add(constraintsScrollPane, BorderLayout.CENTER);
+		// Add all sections to main panel
+		mainPanel.add(rewardPanel);
+		mainPanel.add(Box.createVerticalStrut(10));
+		mainPanel.add(constraintsScrollPane);
+		mainPanel.add(Box.createVerticalStrut(10));
+		mainPanel.add(addButtonsPanel);
+		mainPanel.add(Box.createVerticalStrut(10));
+		mainPanel.add(actionButtonsPanel);
+		mainPanel.add(Box.createVerticalStrut(10));
+		mainPanel.add(submitPanel);
 
 		add(titleLabel, BorderLayout.NORTH);
 		add(mainPanel, BorderLayout.CENTER);
-		add(buttonPanel, BorderLayout.EAST);
 		add(statusLabel, BorderLayout.SOUTH);
 
 		updateConstraintsDisplay();
@@ -114,23 +158,12 @@ public class AnswerBuilderPanel extends PluginPanel
 		addActionButton = new JButton("+ Action");
 		addActionButton.addActionListener(this::onAddActionConstraint);
 
-		addEventKeyButton = new JButton("+ Event Key");
-		addEventKeyButton.addActionListener(this::onAddEventKeyConstraint);
-
-		testAnswerButton = new JButton("Test Answer");
-		testAnswerButton.addActionListener(this::onTestAnswer);
-
 		clearAnswerButton = new JButton("Clear All");
 		clearAnswerButton.addActionListener(this::onClearAnswer);
 
-		buttonPanel.add(addLocationButton);
-		buttonPanel.add(addInventoryButton);
-		buttonPanel.add(addEquipmentButton);
-		buttonPanel.add(addActionButton);
-		buttonPanel.add(addEventKeyButton);
-		buttonPanel.add(new JSeparator());
-		buttonPanel.add(testAnswerButton);
-		buttonPanel.add(clearAnswerButton);
+		submitAnswerButton = new JButton("Submit Answer to Server");
+		submitAnswerButton.addActionListener(this::onSubmitAnswer);
+		submitAnswerButton.setEnabled(false); // Initially disabled
 	}
 
 	@Inject
@@ -152,7 +185,8 @@ public class AnswerBuilderPanel extends PluginPanel
 				answerBuilder.addConstraint(constraint);
 				updateConstraintsDisplay();
 				statusLabel.setText("Added location constraint");
-			}
+			},
+			client
 		);
 		
 		dialog.setVisible(true);
@@ -185,23 +219,29 @@ public class AnswerBuilderPanel extends PluginPanel
 		statusLabel.setText("Added action constraint");
 	}
 
-	private void onAddEventKeyConstraint(ActionEvent e)
+	private void onSubmitAnswer(ActionEvent e)
 	{
-		EventKeyConstraint constraint = new EventKeyConstraint("exact");
-		// TODO: Show dialog to configure constraint
-		answerBuilder.addConstraint(constraint);
-		updateConstraintsDisplay();
-		statusLabel.setText("Added event key constraint");
-	}
+		// Update the answer builder with current reward text
+		answerBuilder.setRewardText(rewardTextArea.getText().trim());
 
-	private void onTestAnswer(ActionEvent e)
-	{
-		// Test by submitting current game state to API
-		// The API will validate against the answer being built
-		if (gameStateService != null)
-		{
-			gameStateService.captureFromButton();
-		}
+		// Find the parent frame
+		Window parentWindow = SwingUtilities.getWindowAncestor(this);
+		JFrame parentFrame = (parentWindow instanceof JFrame) ? (JFrame) parentWindow : null;
+
+		SubmitAnswerDialog dialog = new SubmitAnswerDialog(
+			parentFrame,
+			answerBuilder,
+			apiClient,
+			eventKey -> {
+				// Handle the submission
+				statusLabel.setText("Submitting answer to server...");
+				// TODO: Actually submit the answer to the server
+				// For now, just show success
+				statusLabel.setText("Answer submitted successfully with key: " + eventKey);
+			}
+		);
+
+		dialog.setVisible(true);
 	}
 
 	private void onClearAnswer(ActionEvent e)
@@ -209,6 +249,7 @@ public class AnswerBuilderPanel extends PluginPanel
 		answerBuilder.clear();
 		rewardTextArea.setText("");
 		updateConstraintsDisplay();
+		updateSubmitButtonState();
 		statusLabel.setText("Answer cleared");
 	}
 
@@ -235,6 +276,21 @@ public class AnswerBuilderPanel extends PluginPanel
 
 		constraintsPanel.revalidate();
 		constraintsPanel.repaint();
+		
+		// Update submit button state
+		updateSubmitButtonState();
+	}
+
+	private void updateSubmitButtonState()
+	{
+		boolean hasConstraints = answerBuilder.getConstraintCount() > 0;
+		boolean hasRewardText = rewardTextArea != null && !rewardTextArea.getText().trim().isEmpty();
+		boolean canSubmit = hasConstraints && hasRewardText;
+		
+		if (submitAnswerButton != null)
+		{
+			submitAnswerButton.setEnabled(canSubmit);
+		}
 	}
 
 	private JPanel createConstraintPanel(Constraint constraint, int index)
